@@ -1,0 +1,142 @@
+#!/bin/bash
+
+# Import functions from formatdate script
+source formatdate
+
+#######################################
+# Help function for task adding script.
+# Globals:
+#   $0, $HOME
+# Arguments:
+#   None
+# Outputs:
+#   Writes task usage and options to stdout
+#   Exits script with exit code 0
+#######################################
+help_function() {
+  # Help message
+  cat <<EOF
+Usage: $(basename "$0") [-h] [-d date] [-t tags] [-r min_date,max_date]
+
+This script is used to filter tasks based on their tags and/or due dates.
+
+Options:
+  -h  Show this help message and exit.
+  -d  Filter tasks by due date. The argument can be in the format of YYYY-MM-DD.
+  -t  Filter tasks by tag.
+  -r  Filter task between date ranges. The argument must be in format of a csv.
+
+Example usage:
+  $(basename "$0") -d 2022-05-31 -t work,urgent
+  $(basename "$0") -t personal
+  $(basename "$0") -d 2022-05-31
+  $(basename "$0") -r "02-02-02,03-03-03"
+EOF
+  exit 0
+}
+
+#######################################
+# Error reporting function.
+# Globals:
+#   None
+# Arguments:
+#   $*: Error message to be displayed
+# Outputs:
+#   Writes error message to stderr
+#   Writes additional help message to stdout
+#   Exits script with exit code 1
+#######################################
+err() {
+  echo "[$(date +'%Y-%m-%dT%H:%M:%S%z')]: $*" >&2
+  echo "For more information, use $(basename "$0") -h"
+  exit 1
+}
+
+#######################################
+# Function for appending text to output string with formatting.
+# Globals:
+#   output
+# Arguments:
+#   $@: Text to append
+# Outputs:
+#   None
+# Returns:
+#   None
+#######################################
+append_output() {
+  spacing="--------\n"
+  output+="$spacing$@\n$spacing"
+}
+# Initialize variables
+tag_pattern=""
+date_pattern=""
+output=""
+min_date=""
+max_date=""
+
+# Parse command-line arguments
+while getopts ":ht:d:r:" option; do
+  case $option in
+  h)
+    help_function
+    ;;
+  t)
+    tag_pattern="{${OPTARG}}"
+    ;;
+  d)
+    date_pattern="$(format_date "$OPTARG")"
+    if [[ -z $date_pattern ]]; then
+      err "Date is not correct format"
+    fi
+    ;;
+  r)
+    IFS=',' read -ra array <<<"$OPTARG"
+    min_date=$(date -d "${array[0]}" +%s 2>/dev/null)
+    max_date=$(date -d "${array[1]}" +%s 2>/dev/null)
+    if [[ -z $min_date || -z $max_date ]]; then
+      err "Invalid Date Range"
+    fi
+    ;;
+  ?)
+    err "Invalid option: -$OPTARG. For usage information, use $(basename "$0") -h"
+    ;;
+  esac
+done
+
+# Read tasks from file and filter based on user input
+# Since the file is stored as a csv we will convert it to an array
+# Then we check what option we are using by seeing if 
+# Both date and tag pattern exists (-t and -d both used)
+# Then we check for if only tag pattern exists (only -t being used)
+# After that we check the if date pattern exits (only -d being used)
+# Lastly we see if a date range has been set (-r being used)
+# Else no arguments passed through
+while IFS=',' read -ra fields; do
+  task="${fields[0]}"
+  due_date="$(format_date "${fields[1]}")"
+  tags="${fields[2]}"
+  construct="Task: ${task} Date: $due_date Tags: ${tags}"
+  if [[ -n "$tag_pattern" && -n "$date_pattern" ]]; then
+    if echo "$tags" | grep -qF "$tag_pattern" && [[ "$due_date" == "$date_pattern" ]]; then
+      append_output $construct
+    fi
+  elif [[ -n "$tag_pattern" && -z "$date_pattern" ]]; then
+    if echo "$tags" | grep -qF "$tag_pattern"; then
+      append_output $construct
+    fi
+  elif [[ -z "$tag_pattern" && -n "$date_pattern" ]]; then
+    if [[ "$due_date" == "$date_pattern" ]]; then
+      append_output $construct
+    fi
+  elif [[ -n "$min_date" && -n "$max_date" ]]; then
+    converted_date="$(date -d "${fields[1]}" +%s 2>/dev/null)"
+    if [[ $min_date -le $converted_date && $converted_date -le $max_date ]]; then
+      append_output $construct
+    fi
+  else
+    append_output $construct
+  fi
+done <"$HOME/.tasks"
+
+# Output the filtered tasks
+echo -ne "$output" | less

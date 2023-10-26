@@ -1,0 +1,91 @@
+#!/bin/bash
+
+#######################################
+# Help function for task adding script.
+# Globals:
+#   $0, $HOME
+# Arguments:
+#   None
+# Outputs:
+#   Writes task usage and options to stdout
+#   Exits script with exit code 0
+#######################################
+help_function() {
+  cat <<EOF
+Usage: $(basename $0) [-h] [-s] [File...]
+
+This script is used to remove files or directories (this will remove all the 
+files in the folder) on your system. It will log all files and directories it 
+removes to a log file located in $HOME/.rmlog
+
+Options:
+  -h  Show this help message and exit.
+  -s  Silent Mode: Does not log any files removed during the function call
+
+Example usage:
+  rmlog file1.txt photos 
+  rmlog -s file1.txt photos 
+
+EOF
+  exit 0
+}
+
+#######################################
+# Error reporting function.
+# Globals:
+#   None
+# Arguments:
+#   $*: Error message to be displayed
+# Outputs:
+#   Writes error message to stderr
+#   Writes additional help message to stdout
+#   Exits script with exit code 1
+#######################################
+err() {
+  echo "[$(date +'%Y-%m-%dT%H:%M:%S%z')]: $*" >&2
+  echo "For more information, use $(basename "$0") -h"
+  exit 1
+}
+
+# Establishing Variables 
+user=$(whoami)
+flag=0
+write_path=$HOME/.rmlog
+
+# Check for options
+while getopts ':hs' OPTION; do
+  case "$OPTION" in
+  h)
+    help_function
+    ;;
+  s)
+    shift "$(($OPTIND - 1))"
+    flag=1
+    ;;
+  ?)
+    err "Usage: $(basename $0) [-h] [-s] [File...]"
+    ;;
+  esac
+done
+
+# Check for file names
+if [[ $# -eq 0 ]]; then
+  err "No files specified. See usage: $(basename $0) [-h] [-s] [File...]"
+fi
+
+# Remove files and log if necessary
+time=$(date +"%Y-%m-%d %T")
+for file in "$@"; do
+  path=$(readlink -f "$file")
+  if [[ -f "$file" ]]; then
+    rm "$file"
+    if [[ "$flag" -eq 0 ]]; then
+      echo "$time : $user : $path : File" >>$write_path
+    fi
+  elif [[ -d "$file" ]]; then
+    rm -r "$file"
+    if [[ "$flag" -eq 0 ]]; then
+      echo "$time : $user : $path : Directory" >>$write_path
+    fi
+  fi
+done

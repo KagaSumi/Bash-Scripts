@@ -1,0 +1,86 @@
+#!/bin/bash
+
+# Establish Variables
+string=""
+
+#######################################
+# Error reporting function.
+# Globals:
+#   None
+# Arguments:
+#   $*: Error message to be displayed
+# Outputs:
+#   Writes error message to stderr
+#   Writes additional help message to stdout
+#   Exits script with exit code 1
+#######################################
+help_function() {
+  cat <<EOF
+Usage: $(basename $0) [-h] [File...]
+
+Displays their content with line numbers along with file name and owner.
+
+Options:
+  -h  Display this help message and exit
+
+Example usage:
+  println file1.txt file2
+
+EOF
+  exit 0
+}
+
+#######################################
+# Help function for task adding script.
+# Globals:
+#   $0, $HOME
+# Arguments:
+#   None
+# Outputs:
+#   Writes task usage and options to stdout
+#   Exits script with exit code 0
+#######################################
+function err {
+  echo "[$(date +'%Y-%m-%dT%H:%M:%S%z')]: $*" >&2
+  echo "Use -h for help"
+  exit 1
+}
+
+# Parse options
+while getopts ':h' option; do
+  case "${option}" in
+  h)
+    help_function
+    ;;
+  :)
+    err "Option -$OPTARG requires an argument."
+    ;;
+  ?)
+    err "Invalid option: -$OPTARG. Use -h for help."
+    ;;
+  esac
+done
+shift $((OPTIND - 1))
+
+# Check if file is passed through arguments
+if [[ $# -eq 0 ]]; then
+  err "No file passed through. Use -h for help."
+fi
+for file in "$@"; do
+  #verify that the file exists treat director and files differently
+  if [[ -e $file ]]; then
+    if [[ ! -d $file ]]; then
+      owner=$(ls -l $file | awk '{print $3}')
+      string+="File Name: $file\nFile Owner: $owner\n----------------\n"
+      count=1
+      while read -r line; do
+        string+="$count: $line\n"
+        ((count += 1))
+      done <$file
+    else
+      owner=$(ls -dl $file | awk '{print $3}')
+      string+="Directory Name: $file\nFile Owner: $owner\n----------------\n"
+    fi
+  fi
+done
+echo -en $string

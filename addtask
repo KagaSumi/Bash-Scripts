@@ -1,0 +1,97 @@
+#!/bin/bash
+
+# Import the formatdate module
+source formatdate
+
+# Establishing Variables
+due_date=""
+tags=""
+
+#######################################
+# Error reporting function.
+# Globals:
+#   None
+# Arguments:
+#   $*: Error message to be displayed
+# Outputs:
+#   Writes error message to stderr
+#   Writes additional help message to stdout
+#   Exits script with exit code 1
+#######################################
+err() {
+  echo "[$(date +'%Y-%m-%dT%H:%M:%S%z')]: $*" >&2
+  echo "For more help please use addtask -h"
+  exit 1
+}
+
+#######################################
+# Help function for task adding script.
+# Globals:
+#   $0, $HOME
+# Arguments:
+#   None
+# Outputs:
+#   Writes task usage and options to stdout
+#   Exits script with exit code 0
+#######################################
+help_function() {
+  cat <<EOF
+Single-Line Task Usage: $(basename $0) [-h] [-d date] [-t tags] [task note]
+Multi-Line Task Usage: $(basename $0) [-h] [-d date] [-t tags] [task note]
+
+This script is used to add tasks with optional tags and/or due dates.
+Stores tasks in a log file located in at $HOME/.tasks
+
+Options:
+  -h        Show this help message and exit.
+  -d DATE   Add a due date for the task. The argument can be in the format of YYYY-MM-DD.
+  -t TAGS   Add tags to the task. The argument must be a string of comma-separated tags.
+
+Example usage:
+  addtask -d 2022-05-31 -t work,urgent "Finish project"
+  addtask -t personal "Call mom"
+  addtask "Buy groceries"
+
+EOF
+  exit 0
+}
+
+# Using getopts for options parsing
+# There is also some error checking in getopts to make sure that the program does not continue if
+while getopts ':hd:t:' OPTION; do
+  case "$OPTION" in
+  h)
+    help_function
+    ;;
+  d)
+    due_date=$(format_date "$OPTARG" 2>/dev/null)
+    if [[ -z $due_date ]]; then
+      err "Date is not in correct format"
+    fi
+    due_date=$OPTARG
+    ;;
+  t)
+    arr=($OPTARG)
+    for tag in "${arr[@]}"; do
+      tags+="{$tag} "
+    done
+    ;;
+  ?)
+    err "Usage: $(basename $0) [-h] [-d date] [-t tags] task_note"
+    ;;
+  esac
+done
+
+shift "$(($OPTIND - 1))"
+tasks=$@
+
+# If no tasks are provided, prompt for input and have canceled out of with CTRL+D
+if [[ $# -eq 0 ]]; then
+  echo "Enter Task, You can stop anytime with ^D"
+  while read line; do
+    tasks+="$line\n"
+  done
+fi
+
+# Append the task to the task file
+echo "$tasks,$due_date,$tags" >>$HOME/.tasks

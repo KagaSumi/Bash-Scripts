@@ -1,0 +1,19 @@
+#!/bin/bash
+#######################################
+# Date formatting function.
+# Globals:
+#   None
+# Arguments:
+#   $@: Date string
+# Outputs:
+#   Echoes formatted date string to stdout
+# Returns:
+#   0 if successful, 1 otherwise
+#######################################
+format_date() {
+  if [[ -z $1 ]]; then
+    return 1
+  fi
+  formatted_date=$(date -d "$@" +"%b %d, %Y")
+  echo $formatted_date
+}
