@@ -1,0 +1,9 @@
+[Unit]
+Description=Running backup service every week
+
+[Timer]
+OnCalendar=weekly
+Persistent=true
+
+[Install]
+WantedBy=timers.target

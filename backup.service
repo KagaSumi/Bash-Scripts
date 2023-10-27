@@ -1,0 +1,13 @@
+[Unit]
+Description=Runs backup to send a zipped copy of a directory to a Space
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/backup.conf
+ExecStart=/home/quinten/bin/backup $Backup_Directory
+WorkingDirectory=/home/quinten/bin
+User=quinten
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

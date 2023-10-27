@@ -1,0 +1,37 @@
+#!/bin/bash
+
+# run the command like so:
+# spcbup directory-you-want-to-back-up
+
+DATETIME=$(date +%y%m%d-%H_%M_%S)
+SRC=$1
+DST=pog #change to your spaces bucket
+FILENAME=backup
+
+# create a .tar.gz file
+tarfile(){
+  if tar -czvf $FILENAME-$DATETIME.tar.gz $SRC; then
+    echo "Tar file created"
+  else
+    echo "Failed to create .tar.gz"
+    exit 1
+  fi
+}
+
+# move back up file to spaces with s3cmd
+movetoSpace(){
+  if s3cmd put $FILENAME-$DATETIME.tar.gz s3://$DST; then
+    echo "Backup moved to $DST"
+  else
+    echo "Failed to move backup to the $DST"
+    exit 1
+  fi
+}
+
+if tarfile; then
+  movetoSpace
+  mv $FILENAME-$DATETIME.tar.gz /tmp
+  echo "cleaning up, .tar.gz file moved to /tmp"
+fi
+
+exit 0
